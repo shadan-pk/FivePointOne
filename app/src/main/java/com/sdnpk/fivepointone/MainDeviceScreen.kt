@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.media.MediaPlayer
 import android.os.Build
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -21,28 +22,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
+import android.os.Handler
+import android.os.Looper
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-
-class MainDeviceScreen : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            MainDeviceScreen(navController = NavController(this))
-        }
-    }
-}
-
 
 @Composable
 fun MainDeviceScreen(navController: NavController) {
@@ -54,11 +37,39 @@ fun MainDeviceScreen(navController: NavController) {
     var fileName by remember { mutableStateOf("") }
     var isVideo by remember { mutableStateOf(false) }
     var connectedSpeakers by remember { mutableStateOf<List<String>>(emptyList()) }
+    val broadcastThread = remember { mutableStateOf<Thread?>(null) }
 
-    // Simulate adding connected speakers (replace with actual logic)
+    // Start listening for speaker responses
     LaunchedEffect(true) {
-        // Add some dummy speakers for testing
-        connectedSpeakers = listOf("Speaker1", "Speaker2", "Speaker3")
+        listenForSpeakerResponses { speakerIp ->
+            connectedSpeakers = (connectedSpeakers + speakerIp).distinct()
+        }
+    }
+
+    // Request multicast permission
+    val wifiMulticastPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (!isGranted) {
+                Toast.makeText(context, "Multicast permission denied", Toast.LENGTH_LONG).show()
+            }
+        }
+    )
+
+    LaunchedEffect(true) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CHANGE_WIFI_MULTICAST_STATE) != PackageManager.PERMISSION_GRANTED) {
+            wifiMulticastPermissionLauncher.launch(Manifest.permission.CHANGE_WIFI_MULTICAST_STATE)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            broadcastThread.value?.interrupt()
+            mediaPlayer?.release()
+            mediaPlayer = null
+            videoView?.stopPlayback()
+            videoView = null
+        }
     }
 
     Column(
@@ -69,8 +80,6 @@ fun MainDeviceScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Main Device Screen", style = MaterialTheme.typography.headlineMedium)
-
-        // Call the ConnectedSpeakersList module to show the connected speakers
         ConnectedSpeakersList(connectedSpeakers = connectedSpeakers)
     }
 
@@ -105,50 +114,39 @@ fun MainDeviceScreen(navController: NavController) {
         }
     }
 
-    // File picker launcher - defined first
+    // File picker launcher
     val openFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
             uri?.let {
-                // Get file name and determine if it's video
                 context.contentResolver.query(it, null, null, null, null)?.use { cursor ->
                     val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                     cursor.moveToFirst()
                     fileName = cursor.getString(nameIndex)
-
-                    // Check if it's a video file by mime type
                     val mimeType = context.contentResolver.getType(it)
                     isVideo = mimeType?.startsWith("video/") == true
                 }
-
-                // Release previous media resources
                 mediaPlayer?.release()
                 mediaPlayer = null
                 videoView?.stopPlayback()
-
-                // Store URI
                 mediaUri.value = it
-
                 if (!isVideo) {
-                    // Create audio player
                     mediaPlayer = MediaPlayer.create(context, it)
                     mediaPlayer?.setOnCompletionListener {
                         isPlaying = false
                     }
                 }
-                // Video will be initialized when VideoView is ready
             }
         }
     )
 
-    // Permission launcher - defined after openFileLauncher
+    // Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { permissions ->
             val allGranted = permissions.all { it.value }
             hasPermission = allGranted
             if (allGranted) {
-                // Open file picker when permission is granted
                 openFileLauncher.launch("*/*")
             } else {
                 Toast.makeText(
@@ -171,14 +169,11 @@ fun MainDeviceScreen(navController: NavController) {
             text = "Media Player",
             style = MaterialTheme.typography.headlineMedium
         )
-
         Spacer(modifier = Modifier.height(32.dp))
-
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(onClick = {
-                // Check and request permissions based on Android version
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED &&
                         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
@@ -202,9 +197,7 @@ fun MainDeviceScreen(navController: NavController) {
             }) {
                 Text("Load Audio")
             }
-
             Button(onClick = {
-                // Check and request permissions based on Android version
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED &&
                         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
@@ -229,10 +222,7 @@ fun MainDeviceScreen(navController: NavController) {
                 Text("Load Video")
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Show media controls if a file is selected
         mediaUri.value?.let { uri ->
             Card(
                 modifier = Modifier
@@ -247,10 +237,7 @@ fun MainDeviceScreen(navController: NavController) {
                         text = "Now Playing: $fileName",
                         style = MaterialTheme.typography.bodyLarge
                     )
-
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    // Video player view
                     if (isVideo) {
                         AndroidView(
                             modifier = Modifier
@@ -280,9 +267,7 @@ fun MainDeviceScreen(navController: NavController) {
                             }
                         )
                     }
-
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
@@ -305,9 +290,7 @@ fun MainDeviceScreen(navController: NavController) {
                         }) {
                             Text(if (isPlaying) "Pause" else "Play")
                         }
-
                         Spacer(modifier = Modifier.width(16.dp))
-
                         Button(onClick = {
                             if (isVideo) {
                                 videoView?.stopPlayback()
@@ -325,4 +308,28 @@ fun MainDeviceScreen(navController: NavController) {
             }
         }
     }
+}
+
+fun listenForSpeakerResponses(onSpeakerFound: (String) -> Unit) {
+    Thread {
+        try {
+            val socket = DatagramSocket(9877)
+            val buffer = ByteArray(256)
+            while (true) {
+                val packet = DatagramPacket(buffer, buffer.size)
+                socket.receive(packet)
+                val message = String(packet.data, 0, packet.length)
+                Log.d("SpeakerListener", "Received Response: $message")
+                if (message.startsWith("SPEAKER_RESPONSE:")) {
+                    val speakerIp = message.removePrefix("SPEAKER_RESPONSE:")
+                    Log.d("SpeakerListener", "Speaker Found: $speakerIp")
+                    Handler(Looper.getMainLooper()).post {
+                        onSpeakerFound(speakerIp)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SpeakerListener", "Error listening for speakers", e)
+        }
+    }.start()
 }

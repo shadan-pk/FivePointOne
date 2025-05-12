@@ -11,11 +11,14 @@ import androidx.navigation.NavHostController
 import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.compose.ui.platform.LocalContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.MulticastSocket
+import java.net.NetworkInterface
 
 
 @Composable
@@ -50,37 +53,75 @@ fun SpeakerDeviceScreen(navController: NavHostController) {
 
 @Composable
 fun ListenForMainDevice(onMainDeviceFound: (String) -> Unit) {
-    val context = LocalContext.current // This is used to get the context for Toast
-
-    // Start the listening in a background thread
+    val context = LocalContext.current
     LaunchedEffect(true) {
         Thread {
+            var socket: MulticastSocket? = null
             try {
-                val socket = MulticastSocket(9876)
-                val group = InetAddress.getByName("224.0.0.1") // Multicast group address
+                socket = MulticastSocket(9876)
+                val group = InetAddress.getByName("224.0.0.1")
                 socket.joinGroup(group)
-
                 val buffer = ByteArray(256)
-
-                while (true) {
+                while (!Thread.currentThread().isInterrupted) {
                     val packet = DatagramPacket(buffer, buffer.size)
                     socket.receive(packet)
                     val message = String(packet.data, 0, packet.length)
                     println("Received Message: $message")
-
                     if (message == "FIVEPOINTONE_DISCOVERY") {
                         val mainIp = packet.address.hostAddress
                         println("Main Device Found: $mainIp")
-
-                        // Call the onMainDeviceFound callback to update the UI with the IP
                         Handler(Looper.getMainLooper()).post {
-                            onMainDeviceFound(mainIp) // Update the UI with the IP
+                            if (mainIp != null) {
+                                onMainDeviceFound(mainIp)
+                            }
+                        }
+
+                        // Send response back to the main device
+                        var responseSocket: DatagramSocket? = null
+                        try {
+                            responseSocket = DatagramSocket()
+                            val responseMessage = "SPEAKER_RESPONSE:${getLocalIpAddress()}".toByteArray()
+                            val responsePacket = DatagramPacket(
+                                responseMessage,
+                                responseMessage.size,
+                                packet.address,
+                                9877
+                            )
+                            responseSocket.send(responsePacket)
+                            println("Sent response to $mainIp:9877")
+                        } catch (e: Exception) {
+                            Log.e("SpeakerResponse", "Error sending response", e)
+                        } finally {
+                            responseSocket?.close()
                         }
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()  // Handle any errors
+                Log.e("MainDeviceListener", "Error listening for main device", e)
+            } finally {
+                socket?.leaveGroup(InetAddress.getByName("224.0.0.1"))
+                socket?.close()
             }
-        }.start() // Start the background thread to listen for the main device
+        }.start()
     }
+}
+
+// Helper function to get the local IP address
+fun getLocalIpAddress(): String {
+    try {
+        val interfaces = NetworkInterface.getNetworkInterfaces()
+        while (interfaces.hasMoreElements()) {
+            val networkInterface = interfaces.nextElement()
+            val addresses = networkInterface.inetAddresses
+            while (addresses.hasMoreElements()) {
+                val address = addresses.nextElement()
+                if (!address.isLoopbackAddress && address is Inet4Address) {
+                    return address.hostAddress
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return "Unknown"
 }
