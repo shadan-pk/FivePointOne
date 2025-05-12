@@ -55,10 +55,11 @@ fun MainDeviceScreen(navController: NavController) {
     var isVideo by remember { mutableStateOf(false) }
     var connectedSpeakers by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // Simulate adding connected speakers (replace with actual logic)
-    LaunchedEffect(true) {
-        // Add some dummy speakers for testing
-        connectedSpeakers = listOf("Speaker1", "Speaker2", "Speaker3")
+    // Start listening for speaker IPs on launch
+    LaunchedEffect(Unit) {
+        listenForSpeakerDevices { ip ->
+            connectedSpeakers = connectedSpeakers + ip
+        }
     }
 
     Column(
@@ -69,8 +70,6 @@ fun MainDeviceScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Main Device Screen", style = MaterialTheme.typography.headlineMedium)
-
-        // Call the ConnectedSpeakersList module to show the connected speakers
         ConnectedSpeakersList(connectedSpeakers = connectedSpeakers)
     }
 
@@ -323,6 +322,39 @@ fun MainDeviceScreen(navController: NavController) {
                     }
                 }
             }
+        }
+    }
+}
+
+
+fun listenForSpeakerDevices(onSpeakerFound: (String) -> Unit) {
+    Thread {
+        try {
+            val socket = DatagramSocket(9877)
+            val buffer = ByteArray(256)
+
+            while (true) {
+                val packet = DatagramPacket(buffer, buffer.size)
+                socket.receive(packet)
+                val message = String(packet.data, 0, packet.length)
+
+                if (message == "FIVEPOINTONE_SPEAKER_READY") {
+                    val speakerIp = packet.address.hostAddress
+                    onSpeakerFound(speakerIp)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }.start()
+}
+
+@Composable
+fun ConnectedSpeakersList(connectedSpeakers: List<String>) {
+    Column {
+        Text("Connected Speakers:", style = MaterialTheme.typography.bodyLarge)
+        connectedSpeakers.forEach { ip ->
+            Text("- $ip")
         }
     }
 }

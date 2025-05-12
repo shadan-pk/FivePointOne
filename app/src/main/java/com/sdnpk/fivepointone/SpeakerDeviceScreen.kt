@@ -5,27 +5,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
-import android.os.Handler
-import android.os.Looper
-import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.MulticastSocket
 
-
 @Composable
 fun SpeakerDeviceScreen(navController: NavHostController) {
-    // State variable to hold the main device's IP
-    var mainIp by remember { mutableStateOf<String>("") }
+    var mainIp by remember { mutableStateOf("") }
 
-    // Call the function to listen for the main device discovery
-    ListenForMainDevice { ip ->
-        mainIp = ip // Update the main device IP
+    LaunchedEffect(true) {
+        listenForMainDevice { ip ->
+            mainIp = ip
+            sendResponseToMainDevice(ip)
+        }
     }
 
     Column(
@@ -39,7 +36,6 @@ fun SpeakerDeviceScreen(navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Display the main device IP if found
         if (mainIp.isNotEmpty()) {
             Text("Main Device IP: $mainIp", style = MaterialTheme.typography.bodyLarge)
         } else {
@@ -48,39 +44,53 @@ fun SpeakerDeviceScreen(navController: NavHostController) {
     }
 }
 
-@Composable
-fun ListenForMainDevice(onMainDeviceFound: (String) -> Unit) {
-    val context = LocalContext.current // This is used to get the context for Toast
+suspend fun listenForMainDevice(onMainDeviceFound: (String) -> Unit) {
+    withContext(Dispatchers.IO) {
+        try {
+            val socket = MulticastSocket(9876)
+            val group = InetAddress.getByName("224.0.0.1")
+            socket.joinGroup(group)
 
-    // Start the listening in a background thread
-    LaunchedEffect(true) {
-        Thread {
-            try {
-                val socket = MulticastSocket(9876)
-                val group = InetAddress.getByName("224.0.0.1") // Multicast group address
-                socket.joinGroup(group)
+            val buffer = ByteArray(256)
 
-                val buffer = ByteArray(256)
+            while (true) {
+                val packet = DatagramPacket(buffer, buffer.size)
+                socket.receive(packet)
+                val message = String(packet.data, 0, packet.length)
+                println("Received Message: $message")
 
-                while (true) {
-                    val packet = DatagramPacket(buffer, buffer.size)
-                    socket.receive(packet)
-                    val message = String(packet.data, 0, packet.length)
-                    println("Received Message: $message")
+                if (message == "FIVEPOINTONE_DISCOVERY") {
+                    val mainIp = packet.address.hostAddress
+                    println("Main Device Found: $mainIp")
 
-                    if (message == "FIVEPOINTONE_DISCOVERY") {
-                        val mainIp = packet.address.hostAddress
-                        println("Main Device Found: $mainIp")
-
-                        // Call the onMainDeviceFound callback to update the UI with the IP
-                        Handler(Looper.getMainLooper()).post {
-                            onMainDeviceFound(mainIp) // Update the UI with the IP
-                        }
+                    withContext(Dispatchers.Main) {
+                        onMainDeviceFound(mainIp)
                     }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()  // Handle any errors
             }
-        }.start() // Start the background thread to listen for the main device
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+}
+
+fun sendResponseToMainDevice(mainIp: String) {
+    Thread {
+        try {
+            val responseMessage = "SPEAKER_DEVICE_RESPONSE|RearLeft" // Customize per speaker role
+            val responseData = responseMessage.toByteArray()
+            val packet = DatagramPacket(
+                responseData,
+                responseData.size,
+                InetAddress.getByName(mainIp),
+                9877 // Main device should listen on this port
+            )
+            val socket = DatagramSocket()
+            socket.send(packet)
+            println("Sent response to Main Device at $mainIp")
+            socket.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }.start()
 }
