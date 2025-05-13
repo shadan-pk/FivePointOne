@@ -75,7 +75,6 @@ fun HomeScreen(navController: NavHostController) {
 
         androidx.compose.material3.Button(
             onClick = {
-                startCommandListener()
                 navController.navigate("speaker_device")
             }
         ) {
