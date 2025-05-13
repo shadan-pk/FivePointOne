@@ -1,4 +1,4 @@
-package com.sdnpk.fivepointone
+package com.sdnpk.fivepointone.main_device
 
 import android.os.Handler
 import android.os.Looper

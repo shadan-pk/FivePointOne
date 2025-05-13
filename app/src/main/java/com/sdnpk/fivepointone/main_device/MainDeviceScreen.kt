@@ -1,8 +1,7 @@
-package com.sdnpk.fivepointone
+package com.sdnpk.fivepointone.main_device
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -20,7 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 fun MainDeviceScreen(navController: NavController) {
     val context = LocalContext.current
     var connectedSpeakers by remember { mutableStateOf<List<String>>(emptyList()) }
-    val broadcastThread = remember { mutableStateOf<Thread?>(null) }
+    val broadcastService = remember { BroadcastService() }
 
     // Start listening for speaker responses
     LaunchedEffect(true) {
@@ -45,9 +44,18 @@ fun MainDeviceScreen(navController: NavController) {
         }
     }
 
+    // Broadcasting service (Start / Stop logic)
+    val startBroadcasting: () -> Unit = {
+        broadcastService.startBroadcasting()
+    }
+
+    val stopBroadcasting: () -> Unit = {
+        broadcastService.stopBroadcasting()
+    }
+
     DisposableEffect(Unit) {
         onDispose {
-            broadcastThread.value?.interrupt()
+            stopBroadcasting() // Stop broadcasting when the Composable is disposed
         }
     }
 
@@ -60,6 +68,22 @@ fun MainDeviceScreen(navController: NavController) {
     ) {
         Text("Main Device Screen", style = MaterialTheme.typography.headlineMedium)
         ConnectedSpeakersList(connectedSpeakers = connectedSpeakers)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Start/Stop Broadcasting Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(onClick = { startBroadcasting() }) {
+                Text("Start Broadcasting")
+            }
+
+            Button(onClick = { stopBroadcasting() }) {
+                Text("Stop Broadcasting")
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
             navController.navigate("mediaPlayback")

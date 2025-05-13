@@ -59,7 +59,6 @@ fun HomeScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = {
             if (hasMulticastPermission) {
-                startBroadcasting()
                 navController.navigate("main_device")
             } else {
                 Toast.makeText(context, "Please grant multicast permission", Toast.LENGTH_SHORT).show()

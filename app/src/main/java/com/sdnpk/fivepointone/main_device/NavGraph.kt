@@ -1,9 +1,10 @@
-package com.sdnpk.fivepointone
+package com.sdnpk.fivepointone.main_device
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.sdnpk.fivepointone.MediaPlaybackScreen
 
 @Composable
 fun AppNavGraph() {

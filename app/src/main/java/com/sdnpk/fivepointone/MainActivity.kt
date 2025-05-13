@@ -13,6 +13,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.sdnpk.fivepointone.main_device.MainDeviceScreen
+import com.sdnpk.fivepointone.speaker_device.SpeakerDeviceScreen
 import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
 
 class MainActivity : ComponentActivity() {
