@@ -46,7 +46,7 @@ fun AppNavigation() {
                 MainDeviceScreen(navController)
             }
             composable("speaker_device") {
-                SpeakerDeviceScreen(navController)
+                SpeakerDeviceScreen()
             }
             composable("mediaPlayback") {
                 MediaPlaybackScreen(navController)
