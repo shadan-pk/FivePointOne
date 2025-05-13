@@ -1,6 +1,7 @@
 package com.sdnpk.fivepointone.main_device
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.sdnpk.fivepointone.main_device.BroadcastService
 
 @Composable
 fun MainDeviceScreen(navController: NavController) {
@@ -22,6 +24,7 @@ fun MainDeviceScreen(navController: NavController) {
     val broadcastService = remember { BroadcastService() }
     val deviceIpService = remember { DeviceIpService(context) }
     var deviceIp by remember { mutableStateOf("Fetching IP...") }
+    val serviceIntent = remember { Intent(context, BroadcastService::class.java) }
 
     // Fetch device IP on composable composition
     LaunchedEffect(true) {
@@ -77,19 +80,23 @@ fun MainDeviceScreen(navController: NavController) {
         ConnectedSpeakersList(connectedSpeakers = connectedSpeakers)
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Start/Stop Broadcasting Buttons
+        // Start/Stop Buttons
         Row(
-            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Button(onClick = { startBroadcasting() }) {
-                Text("Start Server")
+            Button(onClick = {
+                ContextCompat.startForegroundService(context, serviceIntent)
+            }) {
+                Text("Start Broadcasting")
             }
 
-            Button(onClick = { stopBroadcasting() }) {
-                Text("Stop Server")
+            Button(onClick = {
+                context.stopService(serviceIntent)
+            }) {
+                Text("Stop Broadcasting")
             }
         }
+
 
         Spacer(modifier = Modifier.height(16.dp))
 

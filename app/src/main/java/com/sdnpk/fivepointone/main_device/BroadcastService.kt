@@ -1,45 +1,61 @@
 package com.sdnpk.fivepointone.main_device
 
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
 import android.util.Log
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 
-class BroadcastService {
+class BroadcastService : Service() {
+
     private var isBroadcasting = false
     private var broadcastThread: Thread? = null
 
-    // Start broadcasting
-    fun startBroadcasting() {
-        if (isBroadcasting) return // Don't start if already broadcasting
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startBroadcasting()
+        return START_STICKY
+    }
 
-        Log.d("Broadcasting", "Starting Broadcasting Thread...")
+    override fun onDestroy() {
+        stopBroadcasting()
+        super.onDestroy()
+    }
+
+    internal fun startBroadcasting() {
+        if (isBroadcasting) return
+        isBroadcasting = true
+
         broadcastThread = Thread {
             try {
                 val socket = DatagramSocket()
-                socket.broadcast = true // Enable broadcast
+                socket.broadcast = true
                 val group = InetAddress.getByName("224.0.0.1")
                 val message = "FIVEPOINTONE_DISCOVERY".toByteArray()
-                isBroadcasting = true
 
                 while (isBroadcasting) {
                     val packet = DatagramPacket(message, message.size, group, 9876)
                     socket.send(packet)
-                    Log.d("Broadcasting", "Broadcasted message to $group:9876")
+                    Log.d("BroadcastService", "Broadcasted message to $group:9876")
                     Thread.sleep(2000)
                 }
+
                 socket.close()
             } catch (e: Exception) {
-                Log.e("Broadcasting", "Error broadcasting", e)
+                Log.e("BroadcastService", "Error broadcasting", e)
             }
         }
+
         broadcastThread?.start()
     }
 
-    // Stop broadcasting
-    fun stopBroadcasting() {
+    internal fun stopBroadcasting() {
         isBroadcasting = false
         broadcastThread?.interrupt()
-        Log.d("Broadcasting", "Broadcasting Stopped.")
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
     }
 }
