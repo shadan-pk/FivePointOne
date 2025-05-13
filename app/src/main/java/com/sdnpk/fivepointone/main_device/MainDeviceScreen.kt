@@ -20,6 +20,13 @@ fun MainDeviceScreen(navController: NavController) {
     val context = LocalContext.current
     var connectedSpeakers by remember { mutableStateOf<List<String>>(emptyList()) }
     val broadcastService = remember { BroadcastService() }
+    val deviceIpService = remember { DeviceIpService(context) }
+    var deviceIp by remember { mutableStateOf("Fetching IP...") }
+
+    // Fetch device IP on composable composition
+    LaunchedEffect(true) {
+        deviceIp = deviceIpService.getDeviceIpAddress()
+    }
 
     // Start listening for speaker responses
     LaunchedEffect(true) {
@@ -76,13 +83,18 @@ fun MainDeviceScreen(navController: NavController) {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Button(onClick = { startBroadcasting() }) {
-                Text("Start Broadcasting")
+                Text("Start Server")
             }
 
             Button(onClick = { stopBroadcasting() }) {
-                Text("Stop Broadcasting")
+                Text("Stop Server")
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Display Device IP
+        Text("Main Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
 
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {

@@ -74,24 +74,3 @@ fun HomeScreen(navController: NavController) {
         }
     }
 }
-
-fun startBroadcasting() {
-    Log.d("Broadcasting", "Starting Broadcasting Thread...")
-    Thread {
-        try {
-            val socket = DatagramSocket()
-            socket.broadcast = true // Enable broadcast
-            val group = InetAddress.getByName("224.0.0.1")
-            val message = "FIVEPOINTONE_DISCOVERY".toByteArray()
-            while (!Thread.currentThread().isInterrupted) {
-                val packet = DatagramPacket(message, message.size, group, 9876)
-                socket.send(packet)
-                Log.d("Broadcasting", "Broadcasted message to $group:9876")
-                Thread.sleep(2000)
-            }
-            socket.close()
-        } catch (e: Exception) {
-            Log.e("Broadcasting", "Error broadcasting", e)
-        }
-    }.start()
-}

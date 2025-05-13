@@ -16,12 +16,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -40,15 +43,15 @@ fun SpeakerDeviceScreen(navController: NavHostController) {
     }
 
     Column(
-        modifier = Modifier.Companion
+        modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Companion.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Speaker Device Screen")
 
-        Spacer(modifier = Modifier.Companion.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Display the main device IP if found
         if (mainIp.isNotEmpty()) {
@@ -62,15 +65,20 @@ fun SpeakerDeviceScreen(navController: NavHostController) {
 @Composable
 fun ListenForMainDevice(onMainDeviceFound: (String) -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope() // Use CoroutineScope for async operations
+
+    // Listen for the main device using LaunchedEffect to launch the background task
     LaunchedEffect(true) {
-        Thread {
+        // Using coroutine instead of Thread for better lifecycle management
+        scope.launch {
             var socket: MulticastSocket? = null
             try {
                 socket = MulticastSocket(9876)
                 val group = InetAddress.getByName("224.0.0.1")
                 socket.joinGroup(group)
                 val buffer = ByteArray(256)
-                while (!Thread.currentThread().isInterrupted) {
+
+                while (!isActive) { // Keep listening until the composable is disposed
                     val packet = DatagramPacket(buffer, buffer.size)
                     socket.receive(packet)
                     val message = String(packet.data, 0, packet.length)
@@ -78,11 +86,7 @@ fun ListenForMainDevice(onMainDeviceFound: (String) -> Unit) {
                     if (message == "FIVEPOINTONE_DISCOVERY") {
                         val mainIp = packet.address.hostAddress
                         println("Main Device Found: $mainIp")
-                        Handler(Looper.getMainLooper()).post {
-                            if (mainIp != null) {
-                                onMainDeviceFound(mainIp)
-                            }
-                        }
+                        onMainDeviceFound(mainIp) // Update the UI state
 
                         // Send response back to the main device
                         var responseSocket: DatagramSocket? = null
@@ -111,7 +115,7 @@ fun ListenForMainDevice(onMainDeviceFound: (String) -> Unit) {
                 socket?.leaveGroup(InetAddress.getByName("224.0.0.1"))
                 socket?.close()
             }
-        }.start()
+        }
     }
 }
 
