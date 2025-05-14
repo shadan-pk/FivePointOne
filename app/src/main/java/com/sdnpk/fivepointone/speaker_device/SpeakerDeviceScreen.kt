@@ -40,8 +40,8 @@ fun SpeakerDeviceScreen() {
     var mainIp by remember { mutableStateOf<String>("") }
 
     // Call the function to listen for the main device discovery
-    ListenForMainDevice { ip ->
-        mainIp = ip // Update the main device IP
+    ListenForMainDevice(context = LocalContext.current) {
+        mainIp ->
     }
 
     Column(
@@ -65,72 +65,68 @@ fun SpeakerDeviceScreen() {
 }
 
 @Composable
-fun ListenForMainDevice(onMainDeviceFound: (String) -> Unit) {
-    val context = LocalContext.current
+fun ListenForMainDevice(
+    context: Context,
+    onMainDeviceFound: (String) -> Unit
+) {
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(true) {
         scope.launch(Dispatchers.IO) {
-            // 1) Acquire the multicast lock
-            val wifi = context.applicationContext
-                .getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val lock = wifi.createMulticastLock("discoveryLock").apply {
-                setReferenceCounted(true)
-                acquire()
-            }
-
             var socket: MulticastSocket? = null
+            var multicastLock: WifiManager.MulticastLock? = null
             try {
-                // 2) Open and configure the socket once
-                socket = MulticastSocket(9876).apply {
-                    soTimeout = 5000                       // wait up to 5s
-                    val group = InetAddress.getByName("224.0.0.1")
-                    joinGroup(group)                       // join once
+                // Acquire Multicast Lock
+                val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                multicastLock = wifi.createMulticastLock("fivepointone_multicast_lock").apply {
+                    setReferenceCounted(true)
+                    acquire()
                 }
 
-                val buffer = ByteArray(256)
-                val packet = DatagramPacket(buffer, buffer.size)
+                val group = InetAddress.getByName("224.0.0.1")
+                socket = MulticastSocket(9876)
+                socket.joinGroup(group)
+                socket.soTimeout = 5000 // 5 seconds timeout
 
-                // 3) Keep listening as long as the Composable is alive
+                val buffer = ByteArray(256)
+
                 while (isActive) {
-                    Log.d("Listening", "Waiting for multicast...")
                     try {
+                        Log.d("Listening", "Waiting for multicast...")
+                        val packet = DatagramPacket(buffer, buffer.size)
                         socket.receive(packet)
-                        val message = String(buffer, 0, packet.length)
-                        println("Received Message: $message")
+
+                        val message = String(packet.data, 0, packet.length)
                         Log.d("Listening", "Received: $message from ${packet.address.hostAddress}")
 
                         if (message == "FIVEPOINTONE_DISCOVERY") {
                             val mainIp = packet.address.hostAddress
-                            println("Main Device Found: $mainIp")
+                            Log.d("Listening", "Main Device Found: $mainIp")
                             onMainDeviceFound(mainIp)
 
-                            // send response
+                            // Send response back
                             DatagramSocket().use { responseSocket ->
-                                val payload = "SPEAKER_RESPONSE:${getLocalIpAddress()}".toByteArray()
-                                val resp = DatagramPacket(
-                                    payload, payload.size,
-                                    packet.address, 9877
+                                val responseMessage = "SPEAKER_RESPONSE:${getLocalIpAddress()}".toByteArray()
+                                val responsePacket = DatagramPacket(
+                                    responseMessage,
+                                    responseMessage.size,
+                                    packet.address,
+                                    9877
                                 )
-                                responseSocket.send(resp)
-                                println("Sent response to $mainIp:9877")
+                                responseSocket.send(responsePacket)
+                                Log.d("Listening", "Sent response to $mainIp:9877")
                             }
                         }
                     } catch (e: SocketTimeoutException) {
-                        // No packet in 5s → loop again
                         println("No broadcast received. Retrying…")
                     }
                 }
             } catch (e: Exception) {
-                Log.e("MainDeviceListener", "Fatal listener error", e)
-
+                Log.e("Listening", "Error in listening", e)
             } finally {
-                // 4) Clean up
-                try {
-                    socket?.leaveGroup(InetAddress.getByName("224.0.0.1"))
-                } catch (_: Exception) { /* ignore */ }
+                socket?.leaveGroup(InetAddress.getByName("224.0.0.1"))
                 socket?.close()
-                lock.release()
+                multicastLock?.release()
             }
         }
     }
