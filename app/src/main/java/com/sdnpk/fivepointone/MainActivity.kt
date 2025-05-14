@@ -1,5 +1,6 @@
 package com.sdnpk.fivepointone
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,7 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sdnpk.fivepointone.main_device.MainDeviceScreen
-import com.sdnpk.fivepointone.speaker_device.SpeakerDeviceScreen
+import com.sdnpk.fivepointone.ui.SpeakerDeviceScreen
 import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,8 +47,14 @@ fun AppNavigation() {
                 MainDeviceScreen(navController)
             }
             composable("speaker_device") {
-                SpeakerDeviceScreen()
+                SpeakerDeviceScreen(
+                    deviceId = "DEVICE_${Build.MODEL}",
+                    isBluetoothConnected = false,
+                    isUsingPhoneSpeaker = true,
+                    navController = navController // <-- pass this
+                )
             }
+
             composable("mediaPlayback") {
                 MediaPlaybackScreen(navController)
             }
