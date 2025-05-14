@@ -14,28 +14,40 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import com.sdnpk.fivepointone.utils.startMulticastSender
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sdnpk.fivepointone.utils.startMulticastReceiver
+import kotlinx.coroutines.flow.forEach
+
 
 @Composable
-fun MainDeviceScreen(navController: NavController) {
+fun MainDeviceScreen(navController: NavController, viewModel: MainDeviceViewModel = viewModel()) {
     val context = LocalContext.current
-    var connectedSpeakers by remember { mutableStateOf<List<String>>(emptyList()) }
-    val broadcastService = remember { BroadcastService() }
-    val deviceIpService = remember { DeviceIpService(context) }
-    var deviceIp by remember { mutableStateOf("Fetching IP...") }
+    val scope = rememberCoroutineScope()
+    val speakers by viewModel.discoveredSpeakers.collectAsState()
 
-    // Fetch device IP on composable composition
-    LaunchedEffect(true) {
-        deviceIp = deviceIpService.getDeviceIpAddress()
+    var deviceIp by remember { mutableStateOf("Fetching IP...") }
+    val deviceIpService = remember { DeviceIpService(context) }
+
+    LaunchedEffect(Unit) {
+        startMulticastSender()
     }
 
-    // Start listening for speaker responses
     LaunchedEffect(true) {
-        listenForSpeakerResponses { speakerIp ->
-            connectedSpeakers = (connectedSpeakers + speakerIp).distinct()
+        deviceIp = deviceIpService.getDeviceIpAddress()
+        DiscoveryListenerService.startListening()
+
+        // Start discovery listener
+        scope.launch {
+            while (true) {
+                delay(1000) // Update every second, adjust based on needs
+            }
         }
     }
 
-    // Request multicast permission
     val wifiMulticastPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
@@ -46,23 +58,12 @@ fun MainDeviceScreen(navController: NavController) {
     )
 
     LaunchedEffect(true) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CHANGE_WIFI_MULTICAST_STATE) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CHANGE_WIFI_MULTICAST_STATE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             wifiMulticastPermissionLauncher.launch(Manifest.permission.CHANGE_WIFI_MULTICAST_STATE)
-        }
-    }
-
-    // Broadcasting service (Start / Stop logic)
-    val startBroadcasting: () -> Unit = {
-        broadcastService.startBroadcasting()
-    }
-
-    val stopBroadcasting: () -> Unit = {
-        broadcastService.stopBroadcasting()
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            stopBroadcasting() // Stop broadcasting when the Composable is disposed
         }
     }
 
@@ -74,29 +75,28 @@ fun MainDeviceScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Main Device Screen", style = MaterialTheme.typography.headlineMedium)
-        ConnectedSpeakersList(connectedSpeakers = connectedSpeakers)
-        Spacer(modifier = Modifier.height(16.dp))
 
-        // Start/Stop Broadcasting Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Button(onClick = { startBroadcasting() }) {
-                Text("Start Server")
-            }
+        Text("Main Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
 
-            Button(onClick = { stopBroadcasting() }) {
-                Text("Stop Server")
+        Text("Discovered Speakers:", style = MaterialTheme.typography.bodyLarge)
+
+        // Display discovered speakers
+        speakers.forEach { speaker ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                elevation = CardDefaults.cardElevation()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("ID: ${speaker.getString("id")}")
+                    Text("Bluetooth: ${speaker.getBoolean("bluetooth_connected")}")
+                    Text("Phone Speaker: ${speaker.getBoolean("is_phone_speaker")}")
+                    Text("Timestamp: ${speaker.getLong("timestamp")}")
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Display Device IP
-        Text("Main Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
-
-        Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
             navController.navigate("mediaPlayback")
         }) {
@@ -104,3 +104,4 @@ fun MainDeviceScreen(navController: NavController) {
         }
     }
 }
+
