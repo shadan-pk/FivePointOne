@@ -11,13 +11,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
+//import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
 import com.sdnpk.fivepointone.speaker_device.DiscoveryViewModel
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
 
@@ -94,10 +95,6 @@ private fun startBroadcast(
     isBluetoothConnected: Boolean,
     isUsingPhoneSpeaker: Boolean
 ) {
-    SpeakerBroadcaster.startBroadcasting(
-        context = context,
-        deviceId = deviceId,
-        isBluetoothConnected = isBluetoothConnected,
-        isUsingPhoneSpeaker = isUsingPhoneSpeaker
-    )
+    SpeakerBroadcaster.startBroadcasting(deviceId, isBluetoothConnected, isUsingPhoneSpeaker)
 }
+

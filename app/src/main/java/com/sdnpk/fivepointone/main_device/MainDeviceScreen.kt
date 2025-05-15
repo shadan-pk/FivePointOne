@@ -14,88 +14,78 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import com.sdnpk.fivepointone.utils.startMulticastSender
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sdnpk.fivepointone.data.SpeakerDevice
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
 import kotlinx.coroutines.flow.forEach
 
 
 @Composable
-fun MainDeviceScreen(navController: NavController, viewModel: MainDeviceViewModel = viewModel()) {
+fun MainDeviceScreen(
+    navController: NavController,
+    viewModel: MainDeviceViewModel = viewModel()
+) {
+    val discoveredSpeakers by viewModel.discoveredSpeakers.collectAsState()
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val speakers by viewModel.discoveredSpeakers.collectAsState()
+    var deviceIp by remember { mutableStateOf("Fetching...") }
 
-    var deviceIp by remember { mutableStateOf("Fetching IP...") }
-    val deviceIpService = remember { DeviceIpService(context) }
-
+    // Get device IP
     LaunchedEffect(Unit) {
-        startMulticastSender()
+        deviceIp = getDeviceIpAddress(context)
     }
 
-    LaunchedEffect(true) {
-        deviceIp = deviceIpService.getDeviceIpAddress()
-        DiscoveryListenerService.startListening()
-
-        // Start discovery listener
-        scope.launch {
-            while (true) {
-                delay(1000) // Update every second, adjust based on needs
-            }
-        }
-    }
-
-    val wifiMulticastPermissionLauncher = rememberLauncherForActivityResult(
+    // Request multicast permission
+    val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            if (!isGranted) {
+        onResult = { granted ->
+            if (!granted) {
                 Toast.makeText(context, "Multicast permission denied", Toast.LENGTH_LONG).show()
             }
         }
     )
 
-    LaunchedEffect(true) {
+    LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.CHANGE_WIFI_MULTICAST_STATE
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            wifiMulticastPermissionLauncher.launch(Manifest.permission.CHANGE_WIFI_MULTICAST_STATE)
+            permissionLauncher.launch(Manifest.permission.CHANGE_WIFI_MULTICAST_STATE)
         }
+
+        // Start receiving speaker broadcasts
+        startSpeakerDiscoveryReceiver(viewModel)
+
+        // Start multicast sender
+        startMulticastSender()
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Main Device Screen", style = MaterialTheme.typography.headlineMedium)
+        Text("Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
 
-        Text("Main Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
-
-        Text("Discovered Speakers:", style = MaterialTheme.typography.bodyLarge)
-
-        // Display discovered speakers
-        speakers.forEach { speaker ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                elevation = CardDefaults.cardElevation()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("ID: ${speaker.getString("id")}")
-                    Text("Bluetooth: ${speaker.getBoolean("bluetooth_connected")}")
-                    Text("Phone Speaker: ${speaker.getBoolean("is_phone_speaker")}")
-                    Text("Timestamp: ${speaker.getLong("timestamp")}")
-                }
+        Text("Discovered Speakers:", style = MaterialTheme.typography.titleMedium)
+        LazyColumn {
+            items(
+                items = discoveredSpeakers,
+                key = { speaker -> speaker.id }
+            ) { speaker ->
+                SpeakerCard(speaker)
             }
         }
+
 
         Button(onClick = {
             navController.navigate("mediaPlayback")
@@ -104,4 +94,5 @@ fun MainDeviceScreen(navController: NavController, viewModel: MainDeviceViewMode
         }
     }
 }
+
 
