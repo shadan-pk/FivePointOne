@@ -2,6 +2,7 @@ package com.sdnpk.fivepointone.main_device
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ import org.json.JSONObject
 import com.sdnpk.fivepointone.utils.startMulticastSender
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sdnpk.fivepointone.data.SpeakerDevice
+import com.sdnpk.fivepointone.main_device.connection.sendConnectRequest
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
 import kotlinx.coroutines.flow.forEach
 
@@ -78,13 +80,23 @@ fun MainDeviceScreen(
 
         Text("Discovered Speakers:", style = MaterialTheme.typography.titleMedium)
         LazyColumn {
-            items(
-                items = discoveredSpeakers,
-                key = { speaker -> speaker.id }
-            ) { speaker ->
-                SpeakerCard(speaker)
+            items(discoveredSpeakers, key = { it.id }) { speaker ->
+                SpeakerCard(
+                    speaker = speaker,
+                    onConnectClick = {
+                        sendConnectRequest(speaker) { success ->
+                            if (success) {
+                                Log.d("MainDeviceScreen", "Successfully connected to ${speaker.id}")
+                            } else {
+                                Log.e("MainDeviceScreen", "Connection failed to ${speaker.id}")
+                            }
+                        }
+                    }
+                )
             }
         }
+
+
 
 
         Button(onClick = {
