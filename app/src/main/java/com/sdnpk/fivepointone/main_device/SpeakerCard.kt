@@ -1,27 +1,33 @@
 package com.sdnpk.fivepointone.main_device
 
+// Your project imports:
+
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-
-// Your project imports:
+import com.sdnpk.fivepointone.config.Role
 import com.sdnpk.fivepointone.data.SpeakerDevice
-import com.sdnpk.fivepointone.main_device.MainDeviceViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpeakerCard(speaker: SpeakerDevice) {
+fun SpeakerCard(
+    speaker: SpeakerDevice,
+    onConnectClick: (SpeakerDevice) -> Unit,
+    onRoleSelected: (SpeakerDevice, Role) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -32,8 +38,48 @@ fun SpeakerCard(speaker: SpeakerDevice) {
             Text("ID: ${speaker.id}")
             Text("IP: ${speaker.ip}")
             Text("BT Connected: ${speaker.bluetoothConnected}")
-            Text("Latency: ${speaker.latencyMs} ms")
+            Text("Latency: ${speaker.latencyMs?.toString() ?: "—"} ms")
             Text("Assigned Role: ${speaker.assignedRole?.name ?: "None"}")
+
+            Spacer(Modifier.height(8.dp))
+
+            if (!speaker.connected) {
+                Button(onClick = { onConnectClick(speaker) }) {
+                    Text("Connect")
+                }
+            } else {
+
+                // Role dropdown only shown after connection
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    TextField(
+                        readOnly = true,
+                        value = speaker.assignedRole?.name ?: "Select Role",
+                        onValueChange = {},
+                        label = { Text("Role") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        colors = ExposedDropdownMenuDefaults.textFieldColors()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        Role.entries.forEach { role ->
+                            DropdownMenuItem(
+                                text = { Text(role.name) },
+                                onClick = {
+                                    expanded = false
+                                    onRoleSelected(speaker, role)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
+

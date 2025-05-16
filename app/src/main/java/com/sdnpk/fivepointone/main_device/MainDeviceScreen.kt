@@ -16,14 +16,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.json.JSONObject
 import com.sdnpk.fivepointone.utils.startMulticastSender
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sdnpk.fivepointone.data.SpeakerDevice
-import com.sdnpk.fivepointone.utils.startMulticastReceiver
-import kotlinx.coroutines.flow.forEach
+import com.sdnpk.fivepointone.speaker_device.connection.SpeakerListener
 
 
 @Composable
@@ -32,10 +27,12 @@ fun MainDeviceScreen(
     viewModel: MainDeviceViewModel = viewModel()
 ) {
     val discoveredSpeakers by viewModel.discoveredSpeakers.collectAsState()
-
+    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var deviceIp by remember { mutableStateOf("Fetching...") }
+    var connectionRequestedFrom by remember { mutableStateOf<String?>(null) }
+
 
     // Get device IP
     LaunchedEffect(Unit) {
@@ -68,6 +65,34 @@ fun MainDeviceScreen(
         startMulticastSender()
     }
 
+    val speakerListener = remember {
+        SpeakerListener(
+            port = 6000,
+            deviceId = "MainDeviceID", // Replace with your actual device ID logic
+            onConnectionRequest = { speakerIp ->
+                connectionRequestedFrom = speakerIp
+                // Optional: update speaker UI state or log
+            },
+            onAcceptConnectionSignal = {
+
+            }
+        )
+    }
+
+    // 4. Start UDP listener
+    LaunchedEffect(Unit) {
+        speakerListener.startListening(coroutineScope)
+    }
+
+    // 5. Stop listener when screen is removed
+    DisposableEffect(Unit) {
+        onDispose {
+            speakerListener.stopListening()
+        }
+    }
+
+
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -77,12 +102,21 @@ fun MainDeviceScreen(
         Text("Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
 
         Text("Discovered Speakers:", style = MaterialTheme.typography.titleMedium)
+//        LazyColumn {
+//            items(
+//                items = discoveredSpeakers,
+//                key = { speaker -> speaker.id }
+//            ) { speaker ->
+//                SpeakerCard(speaker)
+//            }
+//        }
         LazyColumn {
-            items(
-                items = discoveredSpeakers,
-                key = { speaker -> speaker.id }
-            ) { speaker ->
-                SpeakerCard(speaker)
+            items(discoveredSpeakers, key = { it.id }) { speaker ->
+                SpeakerCard(
+                    speaker = speaker,
+                    onConnectClick = { connectToSpeaker(it) },
+                    onRoleSelected = { device, role -> assignRoleToSpeaker(device, role) }
+                )
             }
         }
 

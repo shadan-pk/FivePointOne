@@ -17,7 +17,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
 import com.sdnpk.fivepointone.speaker_device.DiscoveryViewModel
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
@@ -27,8 +27,13 @@ fun SpeakerDeviceScreen(
     deviceId: String,
     isBluetoothConnected: Boolean,
     isUsingPhoneSpeaker: Boolean,
-    navController: NavController, // <-- add navController
-    viewModel: DiscoveryViewModel = viewModel() // <-- use ViewModel
+    viewModel: DiscoveryViewModel = viewModel(), // <-- use ViewModel
+
+    isBroadcasting: MutableState<Boolean>,
+    mainDeviceIp: String?,
+    onAcceptConnection: () -> Unit,
+    connectionRequested: Boolean,
+    navController: NavHostController
 ) {
     val context = LocalContext.current
     val isBroadcasting = remember { mutableStateOf(false) }
@@ -72,8 +77,26 @@ fun SpeakerDeviceScreen(
     }
 
     // UI
+//    Column(
+//        modifier = Modifier.fillMaxSize().padding(24.dp),
+//        verticalArrangement = Arrangement.Center,
+//        horizontalAlignment = Alignment.CenterHorizontally
+//    ) {
+//        Text("Speaker Device Mode", style = MaterialTheme.typography.headlineMedium)
+//        Spacer(modifier = Modifier.height(16.dp))
+//
+//        Text("Device ID: $deviceId")
+//        Text("Bluetooth: $isBluetoothConnected")
+//        Text("Using Phone Speaker: $isUsingPhoneSpeaker")
+//        Text("Status: ${if (isBroadcasting.value) "Broadcasting" else "Idle"}")
+//        Spacer(modifier = Modifier.height(16.dp))
+//        Text("Main IP: ${mainDeviceIp ?: "Waiting..."}")
+//    }
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -86,6 +109,31 @@ fun SpeakerDeviceScreen(
         Text("Status: ${if (isBroadcasting.value) "Broadcasting" else "Idle"}")
         Spacer(modifier = Modifier.height(16.dp))
         Text("Main IP: ${mainDeviceIp ?: "Waiting..."}")
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (connectionRequested) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Connection request received from main device!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = onAcceptConnection) {
+                        Text("Accept Connection")
+                    }
+                }
+            }
+        }
     }
 }
 
