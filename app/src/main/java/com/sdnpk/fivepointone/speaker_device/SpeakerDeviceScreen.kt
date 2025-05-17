@@ -24,6 +24,7 @@ import com.sdnpk.fivepointone.speaker_device.DiscoveryViewModel
 import com.sdnpk.fivepointone.speaker_device.connection.SpeakerUnicastListener
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
 import androidx.compose.runtime.getValue
+import com.sdnpk.fivepointone.speaker_device.disconnnection.sendDisconnectMessageToMainDevice
 
 
 @Composable
@@ -38,6 +39,7 @@ fun SpeakerDeviceScreen(
     val isBroadcasting = remember { mutableStateOf(false) }
 //    val mainDeviceIp = viewModel.mainDeviceIp.value
     val mainDeviceIp by viewModel.mainDeviceIp
+    var isAccepted by remember { mutableStateOf(false) }
 
 
 //    val mainDeviceIp = viewModel.mainDeviceIp.collectAsState().value
@@ -75,6 +77,15 @@ fun SpeakerDeviceScreen(
             speakerListener.stop()
         }
     }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (mainDeviceIp != null) {
+                sendDisconnectMessageToMainDevice(mainDeviceIp!!)
+            }
+        }
+    }
+
 
     // Start listening to main device broadcasts
     LaunchedEffect(Unit) {
@@ -122,15 +133,25 @@ fun SpeakerDeviceScreen(
         Text("Main IP: ${mainDeviceIp ?: "Waiting..."}")
 
         // ✅ Show button only when a connect_request was received
-        if (connectionRequested) {
+        if (connectionRequested || isAccepted) {
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Connection request from main device!")
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = {
-                speakerListener.acceptConnection()
-                connectionRequested = false
-            }) {
-                Text("Accept Connection")
+
+            // Show this only before accepting
+            if (!isAccepted) {
+                Text("Connection request from main device!")
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            Button(
+                onClick = {
+                    if (!isAccepted) {
+                        speakerListener.acceptConnection()
+                        isAccepted = true
+                    }
+                },
+                enabled = !isAccepted
+            ) {
+                Text(if (isAccepted) "Connected" else "Accept Connection")
             }
         }
     }

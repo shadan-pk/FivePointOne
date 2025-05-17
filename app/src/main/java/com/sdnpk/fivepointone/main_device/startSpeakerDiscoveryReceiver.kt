@@ -38,7 +38,8 @@ fun startSpeakerDiscoveryReceiver(viewModel: MainDeviceViewModel) {
                     assignedRole = null
                 )
 
-                viewModel.addSpeaker(speaker)
+//                viewModel.addSpeaker(speaker)
+                viewModel.updateSpeakerHeartbeat(speaker)
             }
         } catch (e: Exception) {
             Log.e("DiscoveryReceiver", "Error in multicast receive", e)

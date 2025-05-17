@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,22 +19,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.json.JSONObject
 import com.sdnpk.fivepointone.utils.startMulticastSender
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sdnpk.fivepointone.data.SpeakerDevice
 import com.sdnpk.fivepointone.main_device.connection.sendConnectRequest
-import com.sdnpk.fivepointone.utils.startMulticastReceiver
-import kotlinx.coroutines.flow.forEach
 
 
 @Composable
 fun MainDeviceScreen(
     navController: NavController,
-    viewModel: MainDeviceViewModel = viewModel()
+//    viewModel: MainDeviceViewModel = viewModel(),
+    viewModel: MainDeviceViewModel
+
 ) {
     val discoveredSpeakers by viewModel.discoveredSpeakers.collectAsState()
+    var showDisconnectDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -54,6 +52,41 @@ fun MainDeviceScreen(
         }
     )
 
+    BackHandler {
+        showDisconnectDialog = true
+    }
+
+    if (showDisconnectDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectDialog = false },
+            title = { Text("Disconnect") },
+            text = { Text("Do you want to disconnect and leave the screen?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.disconnectAllSpeakers()
+                    showDisconnectDialog = false
+                    navController.popBackStack() // Navigate back here
+                }) {
+                    Text("Yes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectDialog = false }) {
+                    Text("No")
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            viewModel.checkInactiveSpeakers()
+        }
+    }
+
+
+
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(
                 context,
@@ -68,6 +101,12 @@ fun MainDeviceScreen(
 
         // Start multicast sender
         startMulticastSender()
+
+
+//        startListeningForDisconnects { speakerId ->
+//            viewModel.updateSpeakerHeartbeat(speaker)
+//
+//        }
     }
 
     Column(
@@ -83,10 +122,11 @@ fun MainDeviceScreen(
             items(discoveredSpeakers, key = { it.id }) { speaker ->
                 SpeakerCard(
                     speaker = speaker,
-                    onConnectClick = {
+                    onConnectClick = { speaker ->
                         sendConnectRequest(speaker) { success ->
                             if (success) {
                                 Log.d("MainDeviceScreen", "Successfully connected to ${speaker.id}")
+                                viewModel.markSpeakerAsConnected(speaker.id)
                             } else {
                                 Log.e("MainDeviceScreen", "Connection failed to ${speaker.id}")
                             }
@@ -95,10 +135,6 @@ fun MainDeviceScreen(
                 )
             }
         }
-
-
-
-
         Button(onClick = {
             navController.navigate("mediaPlayback")
         }) {

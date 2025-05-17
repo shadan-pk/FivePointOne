@@ -41,7 +41,9 @@ fun startMulticastSender() {
         try {
             val group = InetAddress.getByName("239.1.2.3")
             val port = 5000
-            val socket = DatagramSocket()
+//            val socket = DatagramSocket()
+//            need to change if something is not working
+            val socket = MulticastSocket()
 
             while (true) {
                 val message = "Hello from Main! Time: ${System.currentTimeMillis()}"
