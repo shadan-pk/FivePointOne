@@ -13,4 +13,5 @@ class DiscoveryViewModel : ViewModel() {
     fun setMainDeviceIp(ip: String) {
         _mainDeviceIp.value = ip
     }
+
 }

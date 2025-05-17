@@ -11,15 +11,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
+//import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
 import com.sdnpk.fivepointone.speaker_device.DiscoveryViewModel
+import com.sdnpk.fivepointone.speaker_device.connection.SpeakerUnicastListener
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
+import androidx.compose.runtime.getValue
+import com.sdnpk.fivepointone.speaker_device.disconnnection.sendDisconnectMessageToMainDevice
+
 
 @Composable
 fun SpeakerDeviceScreen(
@@ -31,7 +37,12 @@ fun SpeakerDeviceScreen(
 ) {
     val context = LocalContext.current
     val isBroadcasting = remember { mutableStateOf(false) }
-    val mainDeviceIp = viewModel.mainDeviceIp.value
+//    val mainDeviceIp = viewModel.mainDeviceIp.value
+    val mainDeviceIp by viewModel.mainDeviceIp
+    var isAccepted by remember { mutableStateOf(false) }
+
+
+//    val mainDeviceIp = viewModel.mainDeviceIp.collectAsState().value
 
     val multicastPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -40,6 +51,41 @@ fun SpeakerDeviceScreen(
             Toast.makeText(context, "Multicast permission denied", Toast.LENGTH_LONG).show()
         }
     }
+
+    val coroutineScope = rememberCoroutineScope()
+    var connectionRequested by remember { mutableStateOf(false) }
+
+//    var mainDeviceIp by remember { mutableStateOf<String?>(null) }
+
+    val speakerListener = remember {
+        SpeakerUnicastListener(
+            port = 6000,
+            deviceId = "DEVICE_${Build.MODEL}",
+            onConnectRequestReceived = { ip ->
+                connectionRequested = true  // local mutable state
+                viewModel.setMainDeviceIp(ip)  // update ViewModel state via method
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        speakerListener.start(coroutineScope)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            speakerListener.stop()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (mainDeviceIp != null) {
+                sendDisconnectMessageToMainDevice(mainDeviceIp!!)
+            }
+        }
+    }
+
 
     // Start listening to main device broadcasts
     LaunchedEffect(Unit) {
@@ -85,7 +131,31 @@ fun SpeakerDeviceScreen(
         Text("Status: ${if (isBroadcasting.value) "Broadcasting" else "Idle"}")
         Spacer(modifier = Modifier.height(16.dp))
         Text("Main IP: ${mainDeviceIp ?: "Waiting..."}")
+
+        // ✅ Show button only when a connect_request was received
+        if (connectionRequested || isAccepted) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Show this only before accepting
+            if (!isAccepted) {
+                Text("Connection request from main device!")
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            Button(
+                onClick = {
+                    if (!isAccepted) {
+                        speakerListener.acceptConnection()
+                        isAccepted = true
+                    }
+                },
+                enabled = !isAccepted
+            ) {
+                Text(if (isAccepted) "Connected" else "Accept Connection")
+            }
+        }
     }
+
 }
 
 private fun startBroadcast(
@@ -94,10 +164,6 @@ private fun startBroadcast(
     isBluetoothConnected: Boolean,
     isUsingPhoneSpeaker: Boolean
 ) {
-    SpeakerBroadcaster.startBroadcasting(
-        context = context,
-        deviceId = deviceId,
-        isBluetoothConnected = isBluetoothConnected,
-        isUsingPhoneSpeaker = isUsingPhoneSpeaker
-    )
+    SpeakerBroadcaster.startBroadcasting(deviceId, isBluetoothConnected, isUsingPhoneSpeaker)
 }
+

@@ -2,7 +2,9 @@ package com.sdnpk.fivepointone.main_device
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,89 +16,125 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.json.JSONObject
 import com.sdnpk.fivepointone.utils.startMulticastSender
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sdnpk.fivepointone.utils.startMulticastReceiver
-import kotlinx.coroutines.flow.forEach
+import com.sdnpk.fivepointone.main_device.connection.sendConnectRequest
 
 
 @Composable
-fun MainDeviceScreen(navController: NavController, viewModel: MainDeviceViewModel = viewModel()) {
+fun MainDeviceScreen(
+    navController: NavController,
+//    viewModel: MainDeviceViewModel = viewModel(),
+    viewModel: MainDeviceViewModel
+
+) {
+    val discoveredSpeakers by viewModel.discoveredSpeakers.collectAsState()
+    var showDisconnectDialog by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val speakers by viewModel.discoveredSpeakers.collectAsState()
+    var deviceIp by remember { mutableStateOf("Fetching...") }
 
-    var deviceIp by remember { mutableStateOf("Fetching IP...") }
-    val deviceIpService = remember { DeviceIpService(context) }
-
+    // Get device IP
     LaunchedEffect(Unit) {
-        startMulticastSender()
+        deviceIp = getDeviceIpAddress(context)
     }
 
-    LaunchedEffect(true) {
-        deviceIp = deviceIpService.getDeviceIpAddress()
-        DiscoveryListenerService.startListening()
-
-        // Start discovery listener
-        scope.launch {
-            while (true) {
-                delay(1000) // Update every second, adjust based on needs
-            }
-        }
-    }
-
-    val wifiMulticastPermissionLauncher = rememberLauncherForActivityResult(
+    // Request multicast permission
+    val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            if (!isGranted) {
+        onResult = { granted ->
+            if (!granted) {
                 Toast.makeText(context, "Multicast permission denied", Toast.LENGTH_LONG).show()
             }
         }
     )
 
-    LaunchedEffect(true) {
+    BackHandler {
+        showDisconnectDialog = true
+    }
+
+    if (showDisconnectDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectDialog = false },
+            title = { Text("Disconnect") },
+            text = { Text("Do you want to disconnect and leave the screen?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.disconnectAllSpeakers()
+                    showDisconnectDialog = false
+                    navController.popBackStack() // Navigate back here
+                }) {
+                    Text("Yes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectDialog = false }) {
+                    Text("No")
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            viewModel.checkInactiveSpeakers()
+        }
+    }
+
+
+
+    LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.CHANGE_WIFI_MULTICAST_STATE
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            wifiMulticastPermissionLauncher.launch(Manifest.permission.CHANGE_WIFI_MULTICAST_STATE)
+            permissionLauncher.launch(Manifest.permission.CHANGE_WIFI_MULTICAST_STATE)
         }
+
+        // Start receiving speaker broadcasts
+        startSpeakerDiscoveryReceiver(viewModel)
+
+        // Start multicast sender
+        startMulticastSender()
+
+
+//        startListeningForDisconnects { speakerId ->
+//            viewModel.updateSpeakerHeartbeat(speaker)
+//
+//        }
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Main Device Screen", style = MaterialTheme.typography.headlineMedium)
+        Text("Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
 
-        Text("Main Device IP: $deviceIp", style = MaterialTheme.typography.bodyLarge)
-
-        Text("Discovered Speakers:", style = MaterialTheme.typography.bodyLarge)
-
-        // Display discovered speakers
-        speakers.forEach { speaker ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                elevation = CardDefaults.cardElevation()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("ID: ${speaker.getString("id")}")
-                    Text("Bluetooth: ${speaker.getBoolean("bluetooth_connected")}")
-                    Text("Phone Speaker: ${speaker.getBoolean("is_phone_speaker")}")
-                    Text("Timestamp: ${speaker.getLong("timestamp")}")
-                }
+        Text("Discovered Speakers:", style = MaterialTheme.typography.titleMedium)
+        LazyColumn {
+            items(discoveredSpeakers, key = { it.id }) { speaker ->
+                SpeakerCard(
+                    speaker = speaker,
+                    onConnectClick = { speaker ->
+                        sendConnectRequest(speaker) { success ->
+                            if (success) {
+                                Log.d("MainDeviceScreen", "Successfully connected to ${speaker.id}")
+                                viewModel.markSpeakerAsConnected(speaker.id)
+                            } else {
+                                Log.e("MainDeviceScreen", "Connection failed to ${speaker.id}")
+                            }
+                        }
+                    }
+                )
             }
         }
-
         Button(onClick = {
             navController.navigate("mediaPlayback")
         }) {
@@ -104,4 +142,5 @@ fun MainDeviceScreen(navController: NavController, viewModel: MainDeviceViewMode
         }
     }
 }
+
 
