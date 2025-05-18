@@ -36,16 +36,20 @@ fun startMulticastReceiver(context: Context, onMessageReceived: (String, String)
 }
 
 
+private var multicastSenderThread: Thread? = null
+@Volatile private var isBroadcasting = false
+
 fun startMulticastSender() {
-    Thread {
+    if (isBroadcasting) return  // Prevent multiple threads
+    isBroadcasting = true
+
+    multicastSenderThread = Thread {
         try {
             val group = InetAddress.getByName("239.1.2.3")
             val port = 5000
-//            val socket = DatagramSocket()
-//            need to change if something is not working
             val socket = MulticastSocket()
 
-            while (true) {
+            while (isBroadcasting) {
                 val message = "Hello from Main! Time: ${System.currentTimeMillis()}"
                 val data = message.toByteArray()
                 val packet = DatagramPacket(data, data.size, group, port)
@@ -54,8 +58,21 @@ fun startMulticastSender() {
                 Log.d("MulticastSender", "Sent: $message")
                 Thread.sleep(2000)
             }
+
+            socket.close()
+            Log.d("MulticastSender", "Broadcasting stopped")
+
         } catch (e: Exception) {
             Log.e("MulticastSender", "Error: ${e.message}")
         }
-    }.start()
+    }
+    multicastSenderThread?.start()
 }
+
+
+fun stopMulticastSender() {
+    isBroadcasting = false
+    multicastSenderThread?.interrupt()
+    multicastSenderThread = null
+}
+

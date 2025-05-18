@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.sdnpk.fivepointone.data.SpeakerDevice
 
@@ -16,6 +17,8 @@ fun SpeakerConfigScreen(
 ) {
     var pingLatency by remember { mutableStateOf<Long?>(null) }
     var isPinging by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
 
     // Helper to get color based on latency
     fun pingColor(latency: Long?): Color {
@@ -60,6 +63,11 @@ fun SpeakerConfigScreen(
             color = Color.Gray,
             style = MaterialTheme.typography.titleMedium
         )
+        Button(
+            onClick = { streamTestAudioToSpeaker(context, speaker) }
+        ) {
+            Text("Test Sound Stream")
+        }
 
         // Future config UI elements here
     }

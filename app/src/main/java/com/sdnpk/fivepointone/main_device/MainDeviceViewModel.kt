@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sdnpk.fivepointone.data.SpeakerDevice
+import com.sdnpk.fivepointone.utils.stopMulticastSender
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +56,7 @@ class MainDeviceViewModel : ViewModel() {
         _discoveredSpeakers.value = _discoveredSpeakers.value.map {
             if (it.isConnected) it.copy(isConnected = false) else it
         }
-        // TODO: Add actual connection cleanup logic here, e.g. close sockets
+        stopMulticastSender()
     }
 
     fun updateSpeakerHeartbeat(speaker: SpeakerDevice) {
