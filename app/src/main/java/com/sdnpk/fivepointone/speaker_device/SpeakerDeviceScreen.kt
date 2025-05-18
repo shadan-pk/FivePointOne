@@ -25,6 +25,7 @@ import com.sdnpk.fivepointone.speaker_device.DiscoveryViewModel
 import com.sdnpk.fivepointone.speaker_device.connection.SpeakerUnicastListener
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
 import androidx.compose.runtime.getValue
+import com.sdnpk.fivepointone.speaker_device.audio.startAudioStreamingReceiver
 import com.sdnpk.fivepointone.speaker_device.connection.UdpPingService
 import com.sdnpk.fivepointone.speaker_device.disconnnection.sendDisconnectMessageToMainDevice
 
@@ -78,7 +79,6 @@ fun SpeakerDeviceScreen(
         val serviceIntent = Intent(context, UdpPingService::class.java)
         context.startService(serviceIntent)
     }
-
 
     DisposableEffect(Unit) {
         onDispose {
@@ -155,6 +155,7 @@ fun SpeakerDeviceScreen(
                     if (!isAccepted) {
                         speakerListener.acceptConnection()
                         isAccepted = true
+                        startAudioStreamingReceiver()
                     }
                 },
                 enabled = !isAccepted

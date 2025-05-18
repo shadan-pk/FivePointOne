@@ -8,5 +8,5 @@ data class SpeakerDevice(
     val latencyMs: Int,
     val bluetoothConnected: Boolean,
     var assignedRole: Role? = null,
-    val isConnected: Boolean = false
+    val isConnected: Boolean = false,
 )
