@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 //import com.sdnpk.fivepointone.speaker_device.SpeakerBroadcaster
 import androidx.core.content.ContextCompat
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
@@ -24,6 +25,7 @@ import com.sdnpk.fivepointone.speaker_device.DiscoveryViewModel
 import com.sdnpk.fivepointone.speaker_device.connection.SpeakerUnicastListener
 import com.sdnpk.fivepointone.utils.startMulticastReceiver
 import androidx.compose.runtime.getValue
+import com.sdnpk.fivepointone.speaker_device.connection.UdpPingService
 import com.sdnpk.fivepointone.speaker_device.disconnnection.sendDisconnectMessageToMainDevice
 
 
@@ -71,6 +73,12 @@ fun SpeakerDeviceScreen(
     LaunchedEffect(Unit) {
         speakerListener.start(coroutineScope)
     }
+
+    LaunchedEffect(Unit) {
+        val serviceIntent = Intent(context, UdpPingService::class.java)
+        context.startService(serviceIntent)
+    }
+
 
     DisposableEffect(Unit) {
         onDispose {

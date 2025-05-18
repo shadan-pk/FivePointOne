@@ -1,6 +1,8 @@
 package com.sdnpk.fivepointone.main_device
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,46 +27,11 @@ import com.sdnpk.fivepointone.data.SpeakerDevice
 import com.sdnpk.fivepointone.main_device.MainDeviceViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-//@Composable
-//fun SpeakerCard(
-//    speaker: SpeakerDevice,
-//    onConnectClick: (SpeakerDevice) -> Unit
-//) {
-//    val backgroundColor = if (speaker.isConnected) Color(0xFFE6F4EA) else Color(0xFFFFEBEE) // lighter shades
-//    val textColor = if (speaker.isConnected) Color(0xFF1B5E20) else Color(0xFFB71C1C)         // darker greens and reds
-//
-//    Card(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(vertical = 4.dp),
-//        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-//        elevation = CardDefaults.cardElevation()
-//    ) {
-//        Column(modifier = Modifier.padding(16.dp)) {
-//            Text("ID: ${speaker.id}", color = textColor)
-//            Text("IP: ${speaker.ip}", color = textColor)
-//            Text("BT Connected: ${speaker.bluetoothConnected}", color = textColor)
-//            Text("Latency: ${speaker.latencyMs} ms", color = textColor)
-//            Text("Assigned Role: ${speaker.assignedRole?.name ?: "None"}", color = textColor)
-//            Text("Status: ${if (speaker.isConnected) "Connected" else "Disconnected"}", color = textColor)
-//
-//            Spacer(modifier = Modifier.height(8.dp))
-//
-//            Button(
-//                onClick = { onConnectClick(speaker) },
-//                enabled = !speaker.isConnected
-//            ) {
-//                Text(if (speaker.isConnected) "Connected" else "Connect")
-//            }
-//        }
-//    }
-//
-//}
-
 @Composable
 fun SpeakerCard(
     speaker: SpeakerDevice,
-    onConnectClick: (SpeakerDevice) -> Unit
+    onConnectClick: (SpeakerDevice) -> Unit,
+    onConfigClick: (SpeakerDevice) -> Unit
 ) {
     val backgroundColor = Color(0xFF2D2D2D) // dark black background
     val textColor = Color.White
@@ -108,12 +75,30 @@ fun SpeakerCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
-                onClick = { onConnectClick(speaker) },
-                enabled = !speaker.isConnected,
-                colors = buttonColors
-            ) {
-                Text(if (speaker.isConnected) "Connected" else "Connect")
+//            Button(
+//                onClick = { onConnectClick(speaker) },
+//                enabled = !speaker.isConnected,
+//                colors = buttonColors
+//            ) {
+//                Text(if (speaker.isConnected) "Connected" else "Connect")
+//            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onConnectClick(speaker) },
+                    enabled = !speaker.isConnected,
+                    colors = buttonColors
+                ) {
+                    Text(if (speaker.isConnected) "Connected" else "Connect")
+                }
+
+                if (speaker.isConnected) {
+                    Button(
+                        onClick = { onConfigClick(speaker) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                    ) {
+                        Text("Config")
+                    }
+                }
             }
         }
     }

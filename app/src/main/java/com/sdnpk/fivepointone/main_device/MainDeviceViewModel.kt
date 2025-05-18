@@ -92,5 +92,13 @@ class MainDeviceViewModel : ViewModel() {
             }
         }
     }
+
+    fun getSpeakerById(id: String): SpeakerDevice? {
+        Log.d("MainDeviceViewModel", "Looking for speaker with ID: $id")
+        Log.d("MainDeviceViewModel", "Available speakers: ${_discoveredSpeakers.value.map { it.id }}")
+        return _discoveredSpeakers.value.find { it.id == id }
+    }
+
+
 }
 

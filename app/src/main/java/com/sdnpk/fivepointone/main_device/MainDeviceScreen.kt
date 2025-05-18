@@ -102,11 +102,6 @@ fun MainDeviceScreen(
         // Start multicast sender
         startMulticastSender()
 
-
-//        startListeningForDisconnects { speakerId ->
-//            viewModel.updateSpeakerHeartbeat(speaker)
-//
-//        }
     }
 
     Column(
@@ -131,6 +126,9 @@ fun MainDeviceScreen(
                                 Log.e("MainDeviceScreen", "Connection failed to ${speaker.id}")
                             }
                         }
+                    },
+                    onConfigClick = { speaker ->
+                        navController.navigate("speakerConfig/${speaker.id}")
                     }
                 )
             }

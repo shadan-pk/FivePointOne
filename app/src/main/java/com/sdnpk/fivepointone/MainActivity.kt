@@ -17,6 +17,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sdnpk.fivepointone.main_device.MainDeviceScreen
 import com.sdnpk.fivepointone.main_device.MainDeviceViewModel
+import com.sdnpk.fivepointone.main_device.connection.sendPingRequest
+import com.sdnpk.fivepointone.main_device.screen.SpeakerConfigScreen
 import com.sdnpk.fivepointone.ui.SpeakerDeviceScreen
 import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
 
@@ -35,6 +37,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController: NavHostController = rememberNavController()
+    val mainDeviceViewModel: MainDeviceViewModel = viewModel()
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         NavHost(
@@ -46,8 +49,6 @@ fun AppNavigation() {
                 HomeScreen(navController)
             }
             composable("main_device") {
-//                MainDeviceScreen(navController)
-                val mainDeviceViewModel: MainDeviceViewModel = viewModel()
                 MainDeviceScreen(
                     viewModel = mainDeviceViewModel,
                     navController = navController
@@ -62,6 +63,20 @@ fun AppNavigation() {
                 )
             }
 
+            composable("speakerConfig/{speakerId}") { backStackEntry ->
+                val speakerId = backStackEntry.arguments?.getString("speakerId") ?: ""
+                val speaker = mainDeviceViewModel.getSpeakerById(speakerId)
+
+                if (speaker != null) {
+                    SpeakerConfigScreen(
+                        speaker = speaker,
+                        sendPingRequest = { spk, callback -> sendPingRequest(spk, callback) }
+                    )
+                } else {
+                    Text("Speaker not found")
+                }
+            }
+            
             composable("mediaPlayback") {
                 MediaPlaybackScreen(navController)
             }
