@@ -34,9 +34,8 @@
 - Implemented multicast UDP broadcasting for speaker presence announcements.  
 - Main device now listens for speaker broadcasts and lists available speakers dynamically.  
 - UI updated to reflect real-time discovery of speaker devices.  
-- Core logic for assigning speaker roles (front left, rear right, etc.) is in progress.  
-- Work underway to optimize audio streaming for minimal latency.  
-- More features and bug fixes coming soon!
+- Created Screen for each speaker conencted in main device
+- Implementated ping and test sound methods
 
 ---
 
