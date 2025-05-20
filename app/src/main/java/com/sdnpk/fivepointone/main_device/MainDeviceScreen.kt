@@ -12,23 +12,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import com.sdnpk.fivepointone.utils.startMulticastSender
 import com.sdnpk.fivepointone.main_device.connection.sendConnectRequest
+import com.sdnpk.fivepointone.viewmodel.SpeakerViewModel
 
 
 @Composable
 fun MainDeviceScreen(
     navController: NavController,
-//    viewModel: MainDeviceViewModel = viewModel(),
-    viewModel: MainDeviceViewModel
-
+    viewModel: MainDeviceViewModel,
+    speakerViewModel: SpeakerViewModel
 ) {
     val discoveredSpeakers by viewModel.discoveredSpeakers.collectAsState()
     var showDisconnectDialog by remember { mutableStateOf(false) }
@@ -121,7 +121,8 @@ fun MainDeviceScreen(
                         sendConnectRequest(speaker) { success ->
                             if (success) {
                                 Log.d("MainDeviceScreen", "Successfully connected to ${speaker.id}")
-                                viewModel.markSpeakerAsConnected(speaker.id)
+                                speakerViewModel.markSpeakerAsConnected(speaker.id)
+
                             } else {
                                 Log.e("MainDeviceScreen", "Connection failed to ${speaker.id}")
                             }
