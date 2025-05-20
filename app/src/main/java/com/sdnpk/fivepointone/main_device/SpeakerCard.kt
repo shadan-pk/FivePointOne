@@ -75,13 +75,6 @@ fun SpeakerCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-//            Button(
-//                onClick = { onConnectClick(speaker) },
-//                enabled = !speaker.isConnected,
-//                colors = buttonColors
-//            ) {
-//                Text(if (speaker.isConnected) "Connected" else "Connect")
-//            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { onConnectClick(speaker) },

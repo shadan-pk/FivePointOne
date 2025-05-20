@@ -21,6 +21,9 @@ import com.sdnpk.fivepointone.main_device.connection.sendPingRequest
 import com.sdnpk.fivepointone.main_device.screen.SpeakerConfigScreen
 import com.sdnpk.fivepointone.ui.SpeakerDeviceScreen
 import com.sdnpk.fivepointone.ui.theme.FivePointOneTheme
+import com.sdnpk.fivepointone.viewmodel.SpeakerViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,11 +52,19 @@ fun AppNavigation() {
                 HomeScreen(navController)
             }
             composable("main_device") {
+                // Local ViewModel (not Hilt)
+                val mainDeviceViewModel: MainDeviceViewModel = viewModel()
+
+                // Hilt ViewModel (uses repository)
+                val speakerViewModel: SpeakerViewModel = hiltViewModel()
+
                 MainDeviceScreen(
                     viewModel = mainDeviceViewModel,
+                    speakerViewModel = speakerViewModel,
                     navController = navController
                 )
             }
+
             composable("speaker_device") {
                 SpeakerDeviceScreen(
                     deviceId = "DEVICE_${Build.MODEL}",
@@ -76,7 +87,7 @@ fun AppNavigation() {
                     Text("Speaker not found")
                 }
             }
-            
+
             composable("mediaPlayback") {
                 MediaPlaybackScreen(navController)
             }
