@@ -2,7 +2,7 @@
 
 # FivePointOne
 <p align="left">
-  <img src="https://github.com/user-attachments/assets/b08e0be3-9571-4092-adb4-57bdf538181b" alt="FivePointOne Logo" width="200"/>
+  <img src="https://github.com/user-attachments/assets/b08e0be3-9571-4092-adb4-57bdf538181b" alt="FivePointOne Logo" width="300"/>
 </p>
 
 
