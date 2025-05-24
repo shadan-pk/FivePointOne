@@ -36,6 +36,7 @@
 - UI updated to reflect real-time discovery of speaker devices.  
 - Created Screen for each speaker conencted in main device
 - Implementated ping and test sound methods
+- implemeted methods for 5.1 audio
 
 ---
 
